@@ -1,6 +1,7 @@
 EUI = require('src.eui')
 MapHooks = require('src.helpers.mapHooks')
 Button = require('src.components.Button')
+Component = require('src.components.Component')
 
 EUI.Create = function (type, config)
     local upperType = type:upper()
@@ -30,6 +31,8 @@ end
 MapHooks.OnInitialization(function ()
     EUI.IsReady = true
     EUI.Frame.MAIN = BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0)
+    EUI.GameFrame = Component.New()
+    EUI.GameFrame.frame = EUI.Frame.MAIN
 
     for _, handler in ipairs(EUI._ReadyPromise) do handler() end
     EUI._ReadyPromise = {}

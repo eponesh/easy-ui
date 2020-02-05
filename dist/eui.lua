@@ -1,13 +1,60 @@
 --[[
-Easy UI Build v0.0.1
+Easy UI. Build v0.0.2
 @Author Sergey Eponeshnikov (https://github.com/eponesh)
 ]]
 
 __EUI_SCOPED_MODULES = {}
 
+-- ModuleName: "src.helpers.deepClone"
+do
+-- Copy Table (http://lua-users.org/wiki/CopyTable)
+local function deepClone(orig)
+    local orig_type = type(orig)
+    local copy
+    if orig_type == 'table' then
+        copy = {}
+        for orig_key, orig_value in next, orig, nil do
+            copy[deepClone(orig_key)] = deepClone(orig_value)
+        end
+        setmetatable(copy, deepClone(getmetatable(orig)))
+    else
+        copy = orig
+    end
+    return copy
+end
+
+__EUI_SCOPED_MODULES['src.helpers.deepClone'] = deepClone
+end
+
+-- ModuleName: "src.helpers.merge"
+do
+-- Merge tables
+local function merge(...)
+    local combinedTable = {}
+    local arg = {...}
+
+    for k, v in pairs(arg) do
+        if type(v) == 'table' then
+            for tk, tv in pairs(v) do
+                combinedTable[tk] = tv
+            end
+        end
+    end
+
+    return combinedTable
+end
+
+__EUI_SCOPED_MODULES['src.helpers.merge'] = merge
+end
+
 -- ModuleName: "src.eui"
 do
+local deepClone = __EUI_SCOPED_MODULES['src.helpers.deepClone']
+local merge = __EUI_SCOPED_MODULES['src.helpers.merge']
+
 local EUI = {
+    CloneDeep = deepClone,
+    Merge = merge,
     IsReady = false,
     Origin = {
         CENTER = FRAMEPOINT_CENTER,
@@ -30,6 +77,13 @@ local EUI = {
         BUTTON = 'BUTTON',
         TEXT = 'TEXT',
         TOOLTIP = 'TOOLTIP'
+    },
+    Size = {
+        XSMALL = 'XSMALL',
+        SMALL = 'SMALL',
+        MEDIUM = 'MEDIUM',
+        LARGE = 'LARGE',
+        XLARGE = 'XLARGE'
     },
     _ReadyPromise = {}
 }
@@ -127,24 +181,63 @@ __EUI_SCOPED_MODULES['src.helpers.mapHooks'] = {
 }
 end
 
+-- ModuleName: "src.presets.components"
+do
+local EUI = __EUI_SCOPED_MODULES['src.eui']
+local Merge = __EUI_SCOPED_MODULES['src.helpers.merge']
+
+local ComponentPresets = {
+    frameTemplate = 'StandardLightBackdropTemplate',
+    width = 0.1,
+    height = 0.1,
+    x = 0,
+    y = 0,
+    text = '',
+    stickTo = EUI.Origin.CENTER,
+    origin = EUI.Origin.CENTER
+}
+
+local ButtonPresets = Merge(ComponentPresets, {
+    frameTemplate = 'ReplayButton',
+    width = 0.015,
+    height = 0.04,
+    text = 'My Button',
+    _sizeMap = {
+        XSMALL = { 0.1, 0.02 },
+        SMALL = { 0.14, 0.03 },
+        MEDIUM = { 0.18, 0.04 },
+        LARGE = { 0.22, 0.05 },
+        XLARGE = { 0.26, 0.06 }
+    }
+})
+
+__EUI_SCOPED_MODULES['src.presets.components'] = {
+    Component = ComponentPresets,
+    Button = ButtonPresets
+}
+end
+
 -- ModuleName: "src.helpers.proto"
 do
-local function NewClass ()
-    local class = {}
-    class.__index = class
-    return class
-end
-
-local function Inherit (parent)
-    local instance = {}
-    setmetatable(instance, { __index = parent })
-    return instance
-end
-
-__EUI_SCOPED_MODULES['src.helpers.proto'] = {
-    NewClass = NewClass,
-    Inherit = Inherit
-}
+local function NewClass ()
+    local class = {
+        get = {},
+        set = {}
+    }
+    class.__index = class
+    return class
+end
+
+local function Inherit (parent)
+    local instance = {}
+    setmetatable(instance, { __index = parent })
+    return instance
+end
+
+__EUI_SCOPED_MODULES['src.helpers.proto'] = {
+    NewClass = NewClass,
+    Inherit = Inherit
+}
 end
 
 -- ModuleName: "src.helpers.framePoints"
@@ -194,75 +287,38 @@ __EUI_SCOPED_MODULES['src.helpers.framePoints'] = {
 }
 end
 
--- ModuleName: "src.helpers.deepClone"
-do
--- Copy Table (http://lua-users.org/wiki/CopyTable)
-local function DeepClone(orig)
-    local orig_type = type(orig)
-    local copy
-    if orig_type == 'table' then
-        copy = {}
-        for orig_key, orig_value in next, orig, nil do
-            copy[DeepClone(orig_key)] = DeepClone(orig_value)
-        end
-        setmetatable(copy, DeepClone(getmetatable(orig)))
-    else
-        copy = orig
-    end
-    return copy
-end
-
-__EUI_SCOPED_MODULES['src.helpers.deepClone'] = DeepClone
-end
-
 -- ModuleName: "src.components.Component"
 do
-local EUI = __EUI_SCOPED_MODULES['src.eui']
+local Presets = __EUI_SCOPED_MODULES['src.presets.components']
 local proto = __EUI_SCOPED_MODULES['src.helpers.proto']
 local fp = __EUI_SCOPED_MODULES['src.helpers.framePoints']
 local DeepClone = __EUI_SCOPED_MODULES['src.helpers.deepClone']
 
 local Component = proto.NewClass()
 
-local ComponentPresets = {
-    frameTemplate = 'StandardLightBackdropTemplate',
-    size = { 0.1, 0.1 },
-    position = EUI.Position.ZERO,
-    text = '',
-    stick = EUI.Origin.CENTER,
-    origin = EUI.Origin.CENTER
-}
-
-function Component:New(config)
+function Component.New(config)
     local component = proto.Inherit(Component)
-    component:defineModel(ComponentPresets)
+    component:defineModel(Presets.Component)
     component:applyConfig(config)
     return component
 end
 
 function Component:defineModel(preset)
-    self.model = {
-        clickHandler = nil
-    }
+    self.model = getmetatable(self).priv
 
-    for k, v in pairs(DeepClone(preset)) do self.model[k] = v end
+    for k, v in pairs(DeepClone(preset)) do self[k] = v end
     return self
 end
 
 function Component:applyConfig(config)
     if config == nil then return end
-    -- For validate data
-    if config.text then self:Text(config.text) end
-    if config.size then self:Size(config.size) end
-    if config.position then self:Position(config.position) end
-    if config.origin then self:Origin(config.origin) end
-    if config.stick then self:Stick(config.stick) end
+    for k, v in pairs(config) do self[k] = v end
     return self;
 end
 
 function Component:updateText()
     if self.frame ~= nil then
-        BlzFrameSetText(self.frame, self.model.text)
+        BlzFrameSetText(self.frame, self.text)
     end
     return self;
 end
@@ -271,11 +327,11 @@ function Component:updatePosition()
     if self.frame ~= nil then
         BlzFrameSetPoint(
             self.frame,
-            self.model.origin,
+            self.origin,
             self.parent,
-            self.model.stick,
-            self.model.position[1],
-            self.model.position[2]
+            self.stickTo,
+            self.x,
+            self.y
         )
     end
     return self;
@@ -283,101 +339,99 @@ end
 
 function Component:updateSize()
     if self.frame ~= nil then
-        BlzFrameSetSize(self.frame, self.model.size[1], self.model.size[2])
+        BlzFrameSetSize(self.frame, self.width, self.height)
     end
     return self;
 end
 
-function Component:Text(newText)
-    if newText ~= nil then
-        self.model.text = newText
-        self:updateText()
-        return self
-    end
+function Component.get:text()
     return self.model.text
 end
+function Component.set:text(text)
+    self.model.text = text
+    self:updateText()
+    return text
+end
 
-function Component:Size(widthOrSize, height)
-    if widthOrSize == nil then
-        return self.model.size
-    end
-
-    if type(widthOrSize) == 'table'
-    and type(widthOrSize[1]) == 'number'
-    and type(widthOrSize[2]) == 'number' then
-        self.model.size[1] = widthOrSize[1]
-        self.model.size[2] = widthOrSize[2]
-
-        self:updateSize()
-        return self
-    end
-
-    if type(widthOrSize) == 'number' then
-        self.model.size[1] = widthOrSize
-    end
-    if type(height) == 'number' then
-        self.model.size[2] = height
-    end
-
+function Component.get:width()
+    return self.model.width
+end
+function Component.set:width(width)
+    self.model.width = width
     self:updateSize()
-    return self
+    return width
 end
 
-function Component:Position(positionOrX, y)
-    if positionOrX == nil then
-        return self.model.position
-    end
-
-    if type(positionOrX) == 'table'
-        and type(positionOrX[1]) == 'number'
-        and type(positionOrX[2]) == 'number' then
-        self.model.position[1] = positionOrX[1]
-        self.model.position[2] = positionOrX[2]
-
-        self:updatePosition()
-        return self
-    end
-
-    if type(positionOrX) == 'number' then
-        self.model.position[1] = positionOrX
-    end
-
-    if type(y) == 'number' then
-        self.model.position[2] = y
-    end
-
-    self:updatePosition()
-    return self
+function Component.get:height()
+    return self.model.height
+end
+function Component.set:height(height)
+    self.model.height = height
+    self:updateSize()
+    return height
 end
 
-function Component:Origin(framePoint)
-    if framePoint ~= nil and framePoint ~= self.model.origin then
-        local point = fp.getConvertedFramePoint(framePoint)
-        if point ~= nil then
-            self.model.origin = point
-            self:updatePosition()
+function Component.get:size()
+    return self.model.size
+end
+function Component.set:size(size)
+    if self._sizeMap == nil then return end
+    local sizeUpper = size:upper()
+    for sizeName, sizeValue in pairs(self._sizeMap) do
+        if sizeName == sizeUpper then
+            self.model.width = sizeValue[1]
+            self.model.height = sizeValue[2]
+            self.model.size = sizeUpper
+            self:updateSize()
+            return size
         end
-
-        return self
     end
+end
 
+function Component.get:x()
+    return self.model.x
+end
+function Component.set:x(x)
+    self.model.x = x
+    self:updatePosition()
+    return x
+end
+
+function Component.get:y()
+    return self.model.y
+end
+function Component.set:y(y)
+    self.model.y = y
+    self:updatePosition()
+    return y
+end
+
+function Component.get:origin()
     return self.model.origin
 end
-
-function Component:Stick(framePoint)
-    if framePoint ~= nil and framePoint ~= self.model.stick then
-        local point = fp.getConvertedFramePoint(framePoint)
-        if point ~= nil then
-            self.model.stick = point
-            self:updatePosition()
-        end
-        return self
+function Component.set:origin(framePoint)
+    local point = fp.getConvertedFramePoint(framePoint)
+    if point ~= nil then
+        self.model.origin = point
+        self:updatePosition()
     end
-    return self.model.stick
+    return point
+end
+
+function Component.get:stickTo()
+    return self.model.stickTo
+end
+function Component.set:stickTo(framePoint)
+    local point = fp.getConvertedFramePoint(framePoint)
+    if point ~= nil then
+        self.model.stickTo = point
+        self:updatePosition()
+    end
+    return point
 end
 
 function Component:mount(parent)
-    self.frame = BlzCreateFrame(self.model.frameTemplate, parent, 0, 0)
+    self.frame = BlzCreateFrame(self.frameTemplate, parent, 0, 0)
     self.parent = parent
     self:updatePosition()
     self:updateSize()
@@ -393,8 +447,16 @@ function Component:unmount()
     self.parent = nil
 end
 
-function Component:IsMounted()
+function Component.get:isMounted()
     return self.frame ~= nil and self.parent ~= nil
+end
+
+function Component:AppendChild(child)
+    child:mount(self.frame)
+end
+
+function Component:RemoveChild(child)
+    child:unmount(self.frame)
 end
 
 function Component:Clone()
@@ -403,7 +465,7 @@ end
 
 function Component:OnClick(handler)
     if type(handler) == 'function' then
-        self.model.clickHandler = handler
+        self.onClick = handler
     end
 
     self:registerClick()
@@ -411,13 +473,13 @@ function Component:OnClick(handler)
 end
 
 function Component:registerClick()
-    if self.frame == nil or type(self.model.clickHandler) ~= 'function' then
+    if self.frame == nil or type(self.onClick) ~= 'function' then
         return
     end
 
     local clickTrigger = CreateTrigger()
     TriggerAddAction(clickTrigger, function ()
-        self.model.clickHandler()
+        self:onClick()
     end)
     BlzTriggerRegisterFrameEvent(clickTrigger, self.frame, FRAMEEVENT_CONTROL_CLICK)
 end
@@ -425,26 +487,49 @@ end
 __EUI_SCOPED_MODULES['src.components.Component'] = Component
 end
 
+-- ModuleName: "src.helpers.makeProxy"
+do
+-- Make proxy object with property support.
+-- @version 3 - 20060921 (D.Manura)
+local function makeProxy(class, priv, getters, setters, is_expose_private)
+    setmetatable(priv, class)
+    local fallback = is_expose_private and priv or class
+    local index = getters and
+        function(self, key)
+            local func = getters[key]
+            if func then return func(self) else return fallback[key] end
+        end
+        or fallback
+    local newindex = setters and
+        function(self, key, value)
+            local func = setters[key]
+            if func then func(self, value)
+            else rawset(self, key, value) end
+        end
+        or fallback
+    local proxy_mt = {
+        __newindex = newindex,
+        __index = index,
+        priv = priv
+    }
+    local self = setmetatable({}, proxy_mt)
+    return self
+end
+
+__EUI_SCOPED_MODULES['src.helpers.makeProxy'] = makeProxy
+end
+
 -- ModuleName: "src.components.Button"
 do
 local Component = __EUI_SCOPED_MODULES['src.components.Component']
-local EUI = __EUI_SCOPED_MODULES['src.eui']
-local proto = __EUI_SCOPED_MODULES['src.helpers.proto']
+local Presets = __EUI_SCOPED_MODULES['src.presets.components']
+local makeProxy = __EUI_SCOPED_MODULES['src.helpers.makeProxy']
 
-local Button = proto.Inherit(Component)
+local Button =  makeProxy(Component, {}, Component.get, Component.set)
 
-local ButtonPresets = {
-    frameTemplate = 'ReplayButton',
-    size = { 0.015, 0.04 },
-    position = EUI.Position.ZERO,
-    text = 'My Button',
-    stick = EUI.Origin.CENTER,
-    origin = EUI.Origin.CENTER
-}
-
-function Button:New(config)
-    local button = proto.Inherit(Button)
-    button:defineModel(ButtonPresets)
+function Button.New(config)
+    local button = makeProxy(Button, {}, Button.get, Button.set)
+    button:defineModel(Presets.Button)
     button:applyConfig(config)
     return button
 end
@@ -457,6 +542,7 @@ do
 EUI = __EUI_SCOPED_MODULES['src.eui']
 MapHooks = __EUI_SCOPED_MODULES['src.helpers.mapHooks']
 Button = __EUI_SCOPED_MODULES['src.components.Button']
+Component = __EUI_SCOPED_MODULES['src.components.Component']
 
 EUI.Create = function (type, config)
     local upperType = type:upper()
@@ -486,6 +572,8 @@ end
 MapHooks.OnInitialization(function ()
     EUI.IsReady = true
     EUI.Frame.MAIN = BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0)
+    EUI.GameFrame = Component.New()
+    EUI.GameFrame.frame = EUI.Frame.MAIN
 
     for _, handler in ipairs(EUI._ReadyPromise) do handler() end
     EUI._ReadyPromise = {}

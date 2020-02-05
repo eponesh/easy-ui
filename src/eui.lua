@@ -1,4 +1,9 @@
+local deepClone = require('src.helpers.deepClone')
+local merge = require('src.helpers.merge')
+
 local EUI = {
+    CloneDeep = deepClone,
+    Merge = merge,
     IsReady = false,
     Origin = {
         CENTER = FRAMEPOINT_CENTER,
@@ -21,6 +26,13 @@ local EUI = {
         BUTTON = 'BUTTON',
         TEXT = 'TEXT',
         TOOLTIP = 'TOOLTIP'
+    },
+    Size = {
+        XSMALL = 'XSMALL',
+        SMALL = 'SMALL',
+        MEDIUM = 'MEDIUM',
+        LARGE = 'LARGE',
+        XLARGE = 'XLARGE'
     },
     _ReadyPromise = {}
 }

@@ -1,5 +1,8 @@
 local function NewClass ()
-    local class = {}
+    local class = {
+        get = {},
+        set = {}
+    }
     class.__index = class
     return class
 end

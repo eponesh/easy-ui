@@ -1,49 +1,33 @@
-local EUI = require('src.eui')
+local Presets = require('src.presets.components')
 local proto = require('src.helpers.proto')
 local fp = require('src.helpers.framePoints')
 local DeepClone = require('src.helpers.deepClone')
 
 local Component = proto.NewClass()
 
-local ComponentPresets = {
-    frameTemplate = 'StandardLightBackdropTemplate',
-    size = { 0.1, 0.1 },
-    position = EUI.Position.ZERO,
-    text = '',
-    stick = EUI.Origin.CENTER,
-    origin = EUI.Origin.CENTER
-}
-
-function Component:New(config)
+function Component.New(config)
     local component = proto.Inherit(Component)
-    component:defineModel(ComponentPresets)
+    component:defineModel(Presets.Component)
     component:applyConfig(config)
     return component
 end
 
 function Component:defineModel(preset)
-    self.model = {
-        clickHandler = nil
-    }
+    self.model = getmetatable(self).priv
 
-    for k, v in pairs(DeepClone(preset)) do self.model[k] = v end
+    for k, v in pairs(DeepClone(preset)) do self[k] = v end
     return self
 end
 
 function Component:applyConfig(config)
     if config == nil then return end
-    -- For validate data
-    if config.text then self:Text(config.text) end
-    if config.size then self:Size(config.size) end
-    if config.position then self:Position(config.position) end
-    if config.origin then self:Origin(config.origin) end
-    if config.stick then self:Stick(config.stick) end
+    for k, v in pairs(config) do self[k] = v end
     return self;
 end
 
 function Component:updateText()
     if self.frame ~= nil then
-        BlzFrameSetText(self.frame, self.model.text)
+        BlzFrameSetText(self.frame, self.text)
     end
     return self;
 end
@@ -52,11 +36,11 @@ function Component:updatePosition()
     if self.frame ~= nil then
         BlzFrameSetPoint(
             self.frame,
-            self.model.origin,
+            self.origin,
             self.parent,
-            self.model.stick,
-            self.model.position[1],
-            self.model.position[2]
+            self.stickTo,
+            self.x,
+            self.y
         )
     end
     return self;
@@ -64,101 +48,99 @@ end
 
 function Component:updateSize()
     if self.frame ~= nil then
-        BlzFrameSetSize(self.frame, self.model.size[1], self.model.size[2])
+        BlzFrameSetSize(self.frame, self.width, self.height)
     end
     return self;
 end
 
-function Component:Text(newText)
-    if newText ~= nil then
-        self.model.text = newText
-        self:updateText()
-        return self
-    end
+function Component.get:text()
     return self.model.text
 end
+function Component.set:text(text)
+    self.model.text = text
+    self:updateText()
+    return text
+end
 
-function Component:Size(widthOrSize, height)
-    if widthOrSize == nil then
-        return self.model.size
-    end
-
-    if type(widthOrSize) == 'table'
-    and type(widthOrSize[1]) == 'number'
-    and type(widthOrSize[2]) == 'number' then
-        self.model.size[1] = widthOrSize[1]
-        self.model.size[2] = widthOrSize[2]
-
-        self:updateSize()
-        return self
-    end
-
-    if type(widthOrSize) == 'number' then
-        self.model.size[1] = widthOrSize
-    end
-    if type(height) == 'number' then
-        self.model.size[2] = height
-    end
-
+function Component.get:width()
+    return self.model.width
+end
+function Component.set:width(width)
+    self.model.width = width
     self:updateSize()
-    return self
+    return width
 end
 
-function Component:Position(positionOrX, y)
-    if positionOrX == nil then
-        return self.model.position
-    end
-
-    if type(positionOrX) == 'table'
-        and type(positionOrX[1]) == 'number'
-        and type(positionOrX[2]) == 'number' then
-        self.model.position[1] = positionOrX[1]
-        self.model.position[2] = positionOrX[2]
-
-        self:updatePosition()
-        return self
-    end
-
-    if type(positionOrX) == 'number' then
-        self.model.position[1] = positionOrX
-    end
-
-    if type(y) == 'number' then
-        self.model.position[2] = y
-    end
-
-    self:updatePosition()
-    return self
+function Component.get:height()
+    return self.model.height
+end
+function Component.set:height(height)
+    self.model.height = height
+    self:updateSize()
+    return height
 end
 
-function Component:Origin(framePoint)
-    if framePoint ~= nil and framePoint ~= self.model.origin then
-        local point = fp.getConvertedFramePoint(framePoint)
-        if point ~= nil then
-            self.model.origin = point
-            self:updatePosition()
+function Component.get:size()
+    return self.model.size
+end
+function Component.set:size(size)
+    if self._sizeMap == nil then return end
+    local sizeUpper = size:upper()
+    for sizeName, sizeValue in pairs(self._sizeMap) do
+        if sizeName == sizeUpper then
+            self.model.width = sizeValue[1]
+            self.model.height = sizeValue[2]
+            self.model.size = sizeUpper
+            self:updateSize()
+            return size
         end
-
-        return self
     end
+end
 
+function Component.get:x()
+    return self.model.x
+end
+function Component.set:x(x)
+    self.model.x = x
+    self:updatePosition()
+    return x
+end
+
+function Component.get:y()
+    return self.model.y
+end
+function Component.set:y(y)
+    self.model.y = y
+    self:updatePosition()
+    return y
+end
+
+function Component.get:origin()
     return self.model.origin
 end
-
-function Component:Stick(framePoint)
-    if framePoint ~= nil and framePoint ~= self.model.stick then
-        local point = fp.getConvertedFramePoint(framePoint)
-        if point ~= nil then
-            self.model.stick = point
-            self:updatePosition()
-        end
-        return self
+function Component.set:origin(framePoint)
+    local point = fp.getConvertedFramePoint(framePoint)
+    if point ~= nil then
+        self.model.origin = point
+        self:updatePosition()
     end
-    return self.model.stick
+    return point
+end
+
+function Component.get:stickTo()
+    return self.model.stickTo
+end
+function Component.set:stickTo(framePoint)
+    local point = fp.getConvertedFramePoint(framePoint)
+    if point ~= nil then
+        self.model.stickTo = point
+        self:updatePosition()
+    end
+    return point
 end
 
 function Component:mount(parent)
-    self.frame = BlzCreateFrame(self.model.frameTemplate, parent, 0, 0)
+    self.frame = BlzCreateFrame(self.frameTemplate, parent, 0, 0)
     self.parent = parent
     self:updatePosition()
     self:updateSize()
@@ -174,8 +156,16 @@ function Component:unmount()
     self.parent = nil
 end
 
-function Component:IsMounted()
+function Component.get:isMounted()
     return self.frame ~= nil and self.parent ~= nil
+end
+
+function Component:AppendChild(child)
+    child:mount(self.frame)
+end
+
+function Component:RemoveChild(child)
+    child:unmount(self.frame)
 end
 
 function Component:Clone()
@@ -184,7 +174,7 @@ end
 
 function Component:OnClick(handler)
     if type(handler) == 'function' then
-        self.model.clickHandler = handler
+        self.onClick = handler
     end
 
     self:registerClick()
@@ -192,13 +182,13 @@ function Component:OnClick(handler)
 end
 
 function Component:registerClick()
-    if self.frame == nil or type(self.model.clickHandler) ~= 'function' then
+    if self.frame == nil or type(self.onClick) ~= 'function' then
         return
     end
 
     local clickTrigger = CreateTrigger()
     TriggerAddAction(clickTrigger, function ()
-        self.model.clickHandler()
+        self:onClick()
     end)
     BlzTriggerRegisterFrameEvent(clickTrigger, self.frame, FRAMEEVENT_CONTROL_CLICK)
 end
