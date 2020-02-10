@@ -3,6 +3,7 @@ local proto = require('src.helpers.proto')
 local fp = require('src.helpers.framePoints')
 local DeepClone = require('src.helpers.deepClone')
 
+local componentId = 0
 local Component = proto.NewClass()
 local ComponentPresets = {
     frameTemplate = 'StandardLightBackdropTemplate',
@@ -13,7 +14,8 @@ local ComponentPresets = {
     text = '',
     stickTo = EUI.Origin.CENTER,
     origin = EUI.Origin.CENTER,
-    texture = ''
+    texture = '',
+    scale = 1
 }
 
 function Component.New(config)
@@ -24,6 +26,8 @@ function Component.New(config)
 end
 
 function Component:defineModel(preset)
+    componentId = componentId + 1
+    self.id = componentId
     self.model = getmetatable(self).priv
 
     for k, v in pairs(DeepClone(preset)) do self[k] = v end
@@ -50,8 +54,8 @@ function Component:updatePosition()
             self.origin,
             self.parent,
             self.stickTo,
-            self.x,
-            self.y
+            self.x / self.scale,
+            self.y / self.scale
         )
     end
     return self;
@@ -59,7 +63,7 @@ end
 
 function Component:updateSize()
     if self.frame ~= nil then
-        BlzFrameSetSize(self.frame, self.width, self.height)
+        BlzFrameSetSize(self.frame, self.width / self.scale, self.height / self.scale)
     end
     return self;
 end
@@ -74,6 +78,15 @@ end
 function Component:updateIcon()
     if self.childFrames ~= nil and self.childFrames.icon ~= nil then
         BlzFrameSetTexture(self.childFrames.icon, self.iconPath, 0, true)
+    end
+    return self;
+end
+
+function Component:updateScale()
+    if self.frame ~= nil then
+        BlzFrameSetScale(self.frame, self.scale)
+        self:updateSize()
+        self:updatePosition()
     end
     return self;
 end
@@ -120,6 +133,31 @@ function Component.set:size(size)
             return size
         end
     end
+end
+
+function Component.get:fontSize()
+    return self.model.fontSize
+end
+function Component.set:fontSize(fontSize)
+    if self._fontSizeScaleMap == nil then return end
+    local fontSizeUpper = fontSize:upper()
+    for fontSizeName, fontSizeValue in pairs(self._fontSizeScaleMap) do
+        if fontSizeName == fontSizeUpper then
+            self.model.scale = fontSizeValue
+            self.model.fontSize = fontSizeUpper
+            self:updateScale()
+            return fontSize
+        end
+    end
+end
+
+function Component.get:scale()
+    return self.model.scale
+end
+function Component.set:scale(scale)
+    self.model.scale = scale
+    self:updateScale()
+    return scale
 end
 
 function Component.get:x()
@@ -187,7 +225,17 @@ function Component.set:iconPath(iconPath)
 end
 
 function Component:mount(parent)
-    self.frame = BlzCreateFrame(self.frameTemplate, parent, 0, 0)
+    if self._type ~= nil then
+        self.frame = BlzCreateFrameByType(
+            self._type,
+            self._type .. '_' .. self.id,
+            parent,
+            self.frameTemplate,
+        0)
+    else
+        self.frame = BlzCreateFrame(self.frameTemplate, parent, 0, 0)
+    end
+
     self.parent = parent
 
     if self._childFrames ~= nil then
@@ -197,6 +245,7 @@ function Component:mount(parent)
         end
     end
 
+    self:updateScale()
     self:updatePosition()
     self:updateSize()
     self:updateText()

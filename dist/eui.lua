@@ -259,6 +259,7 @@ local proto = __EUI_SCOPED_MODULES['src.helpers.proto']
 local fp = __EUI_SCOPED_MODULES['src.helpers.framePoints']
 local DeepClone = __EUI_SCOPED_MODULES['src.helpers.deepClone']
 
+local componentId = 0
 local Component = proto.NewClass()
 local ComponentPresets = {
     frameTemplate = 'StandardLightBackdropTemplate',
@@ -269,7 +270,8 @@ local ComponentPresets = {
     text = '',
     stickTo = EUI.Origin.CENTER,
     origin = EUI.Origin.CENTER,
-    texture = ''
+    texture = '',
+    scale = 1
 }
 
 function Component.New(config)
@@ -280,6 +282,8 @@ function Component.New(config)
 end
 
 function Component:defineModel(preset)
+    componentId = componentId + 1
+    self.id = componentId
     self.model = getmetatable(self).priv
 
     for k, v in pairs(DeepClone(preset)) do self[k] = v end
@@ -306,8 +310,8 @@ function Component:updatePosition()
             self.origin,
             self.parent,
             self.stickTo,
-            self.x,
-            self.y
+            self.x / self.scale,
+            self.y / self.scale
         )
     end
     return self;
@@ -315,7 +319,7 @@ end
 
 function Component:updateSize()
     if self.frame ~= nil then
-        BlzFrameSetSize(self.frame, self.width, self.height)
+        BlzFrameSetSize(self.frame, self.width / self.scale, self.height / self.scale)
     end
     return self;
 end
@@ -330,6 +334,15 @@ end
 function Component:updateIcon()
     if self.childFrames ~= nil and self.childFrames.icon ~= nil then
         BlzFrameSetTexture(self.childFrames.icon, self.iconPath, 0, true)
+    end
+    return self;
+end
+
+function Component:updateScale()
+    if self.frame ~= nil then
+        BlzFrameSetScale(self.frame, self.scale)
+        self:updateSize()
+        self:updatePosition()
     end
     return self;
 end
@@ -376,6 +389,31 @@ function Component.set:size(size)
             return size
         end
     end
+end
+
+function Component.get:fontSize()
+    return self.model.fontSize
+end
+function Component.set:fontSize(fontSize)
+    if self._fontSizeScaleMap == nil then return end
+    local fontSizeUpper = fontSize:upper()
+    for fontSizeName, fontSizeValue in pairs(self._fontSizeScaleMap) do
+        if fontSizeName == fontSizeUpper then
+            self.model.scale = fontSizeValue
+            self.model.fontSize = fontSizeUpper
+            self:updateScale()
+            return fontSize
+        end
+    end
+end
+
+function Component.get:scale()
+    return self.model.scale
+end
+function Component.set:scale(scale)
+    self.model.scale = scale
+    self:updateScale()
+    return scale
 end
 
 function Component.get:x()
@@ -443,7 +481,17 @@ function Component.set:iconPath(iconPath)
 end
 
 function Component:mount(parent)
-    self.frame = BlzCreateFrame(self.frameTemplate, parent, 0, 0)
+    if self._type ~= nil then
+        self.frame = BlzCreateFrameByType(
+            self._type,
+            self._type .. '_' .. self.id,
+            parent,
+            self.frameTemplate,
+        0)
+    else
+        self.frame = BlzCreateFrame(self.frameTemplate, parent, 0, 0)
+    end
+
     self.parent = parent
 
     if self._childFrames ~= nil then
@@ -454,6 +502,7 @@ function Component:mount(parent)
     end
 
     self:updatePosition()
+    self:updateScale()
     self:updateSize()
     self:updateText()
     self:updateTexture()
@@ -619,6 +668,48 @@ __EUI_SCOPED_MODULES['src.components.Icon'] = {
 }
 end
 
+-- ModuleName: "src.components.Text"
+do
+local Component = __EUI_SCOPED_MODULES['src.components.Component']
+local Merge = __EUI_SCOPED_MODULES['src.helpers.merge']
+local makeProxy = __EUI_SCOPED_MODULES['src.helpers.makeProxy']
+local EUI = __EUI_SCOPED_MODULES['src.eui']
+
+local Text = makeProxy(Component.Class, {}, Component.Class.get, Component.Class.set)
+local TextPresets = Merge(Component.Presets, {
+    frameTemplate = 'StandardValueTextTemplate',
+    size = 'medium',
+    fontSize = 'medium',
+    _type = EUI.Component.TEXT,
+    _sizeMap = {
+        XSMALL = { 0.1, 0.02 },
+        SMALL = { 0.14, 0.03 },
+        MEDIUM = { 0.18, 0.04 },
+        LARGE = { 0.22, 0.05 },
+        XLARGE = { 0.26, 0.06 }
+    },
+    _fontSizeScaleMap = {
+        XSMALL = 0.6,
+        SMALL = 0.8,
+        MEDIUM = 1,
+        LARGE = 1.3,
+        XLARGE = 1.7
+    }
+})
+
+function Text.New(config)
+    local text = makeProxy(Text, {}, Text.get, Text.set)
+    text:defineModel(TextPresets)
+    text:applyConfig(config)
+    return text
+end
+
+__EUI_SCOPED_MODULES['src.components.Text'] = {
+    Class = Text,
+    Presets = TextPresets
+}
+end
+
 -- ModuleName: "main"
 do
 EUI = __EUI_SCOPED_MODULES['src.eui']
@@ -626,6 +717,7 @@ MapHooks = __EUI_SCOPED_MODULES['src.helpers.mapHooks']
 Component = __EUI_SCOPED_MODULES['src.components.Component']
 Button = __EUI_SCOPED_MODULES['src.components.Button']
 Icon = __EUI_SCOPED_MODULES['src.components.Icon']
+Text = __EUI_SCOPED_MODULES['src.components.Text']
 
 EUI.CreateButton = function (config)
     return Button.Class.New(config)
@@ -635,12 +727,18 @@ EUI.CreateIcon = function (config)
     return Icon.Class.New(config)
 end
 
+EUI.CreateText = function (config)
+    return Text.Class.New(config)
+end
+
 EUI.Create = function (type, config)
     local upperType = type:upper()
     if upperType == EUI.Component.BUTTON then
         return EUI.CreateButton(config)
     elseif upperType == EUI.Component.ICON then
         return EUI.CreateIcon(config)
+    elseif upperType == EUI.Component.TEXT then
+        return EUI.CreateText(config)
     end
 end
 
