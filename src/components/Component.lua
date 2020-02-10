@@ -1,13 +1,24 @@
-local Presets = require('src.presets.components')
+local EUI = require('src.eui')
 local proto = require('src.helpers.proto')
 local fp = require('src.helpers.framePoints')
 local DeepClone = require('src.helpers.deepClone')
 
 local Component = proto.NewClass()
+local ComponentPresets = {
+    frameTemplate = 'StandardLightBackdropTemplate',
+    width = 0.1,
+    height = 0.1,
+    x = 0,
+    y = 0,
+    text = '',
+    stickTo = EUI.Origin.CENTER,
+    origin = EUI.Origin.CENTER,
+    texture = ''
+}
 
 function Component.New(config)
     local component = proto.Inherit(Component)
-    component:defineModel(Presets.Component)
+    component:defineModel(ComponentPresets)
     component:applyConfig(config)
     return component
 end
@@ -244,4 +255,7 @@ function Component:registerClick()
     BlzTriggerRegisterFrameEvent(clickTrigger, self.frame, FRAMEEVENT_CONTROL_CLICK)
 end
 
-return Component
+return {
+    Class = Component,
+    Presets = ComponentPresets
+}

@@ -1,5 +1,5 @@
 --[[
-Easy UI. Build v0.0.2
+Easy UI. Build v0.0.3
 @Author Sergey Eponeshnikov (https://github.com/eponesh)
 ]]
 
@@ -182,60 +182,6 @@ __EUI_SCOPED_MODULES['src.helpers.mapHooks'] = {
 }
 end
 
--- ModuleName: "src.presets.components"
-do
-local EUI = __EUI_SCOPED_MODULES['src.eui']
-local Merge = __EUI_SCOPED_MODULES['src.helpers.merge']
-
-local ComponentPresets = {
-    frameTemplate = 'StandardLightBackdropTemplate',
-    width = 0.1,
-    height = 0.1,
-    x = 0,
-    y = 0,
-    text = '',
-    stickTo = EUI.Origin.CENTER,
-    origin = EUI.Origin.CENTER,
-    texture = ''
-}
-
-local ButtonPresets = Merge(ComponentPresets, {
-    frameTemplate = 'ReplayButton',
-    width = 0.015,
-    height = 0.04,
-    text = 'My Button',
-    _sizeMap = {
-        XSMALL = { 0.1, 0.02 },
-        SMALL = { 0.14, 0.03 },
-        MEDIUM = { 0.18, 0.04 },
-        LARGE = { 0.22, 0.05 },
-        XLARGE = { 0.26, 0.06 }
-    }
-})
-
-local IconPresets = Merge(ComponentPresets, {
-    frameTemplate = 'ScoreScreenBottomButtonTemplate',
-    size = 'medium',
-    iconPath = 'ReplaceableTextures/CommandButtons/BTNSelectHeroOn.blp',
-    _childFrames = {
-        icon = 'ScoreScreenButtonBackdrop'
-    },
-    _sizeMap = {
-        XSMALL = { 0.02, 0.02 },
-        SMALL = { 0.04, 0.04 },
-        MEDIUM = { 0.08, 0.08 },
-        LARGE = { 0.12, 0.12 },
-        XLARGE = { 0.16, 0.16 }
-    }
-})
-
-__EUI_SCOPED_MODULES['src.presets.components'] = {
-    Component = ComponentPresets,
-    Button = ButtonPresets,
-    Icon = IconPresets
-}
-end
-
 -- ModuleName: "src.helpers.proto"
 do
 local function NewClass ()
@@ -308,16 +254,27 @@ end
 
 -- ModuleName: "src.components.Component"
 do
-local Presets = __EUI_SCOPED_MODULES['src.presets.components']
+local EUI = __EUI_SCOPED_MODULES['src.eui']
 local proto = __EUI_SCOPED_MODULES['src.helpers.proto']
 local fp = __EUI_SCOPED_MODULES['src.helpers.framePoints']
 local DeepClone = __EUI_SCOPED_MODULES['src.helpers.deepClone']
 
 local Component = proto.NewClass()
+local ComponentPresets = {
+    frameTemplate = 'StandardLightBackdropTemplate',
+    width = 0.1,
+    height = 0.1,
+    x = 0,
+    y = 0,
+    text = '',
+    stickTo = EUI.Origin.CENTER,
+    origin = EUI.Origin.CENTER,
+    texture = ''
+}
 
 function Component.New(config)
     local component = proto.Inherit(Component)
-    component:defineModel(Presets.Component)
+    component:defineModel(ComponentPresets)
     component:applyConfig(config)
     return component
 end
@@ -554,7 +511,10 @@ function Component:registerClick()
     BlzTriggerRegisterFrameEvent(clickTrigger, self.frame, FRAMEEVENT_CONTROL_CLICK)
 end
 
-__EUI_SCOPED_MODULES['src.components.Component'] = Component
+__EUI_SCOPED_MODULES['src.components.Component'] = {
+    Class = Component,
+    Presets = ComponentPresets
+}
 end
 
 -- ModuleName: "src.helpers.makeProxy"
@@ -592,37 +552,71 @@ end
 -- ModuleName: "src.components.Button"
 do
 local Component = __EUI_SCOPED_MODULES['src.components.Component']
-local Presets = __EUI_SCOPED_MODULES['src.presets.components']
+local Merge = __EUI_SCOPED_MODULES['src.helpers.merge']
 local makeProxy = __EUI_SCOPED_MODULES['src.helpers.makeProxy']
 
-local Button = makeProxy(Component, {}, Component.get, Component.set)
+local Button = makeProxy(Component.Class, {}, Component.Class.get, Component.Class.set)
+local ButtonPresets = Merge(Component.Presets, {
+    frameTemplate = 'ReplayButton',
+    width = 0.015,
+    height = 0.04,
+    text = 'My Button',
+    _sizeMap = {
+        XSMALL = { 0.1, 0.02 },
+        SMALL = { 0.14, 0.03 },
+        MEDIUM = { 0.18, 0.04 },
+        LARGE = { 0.22, 0.05 },
+        XLARGE = { 0.26, 0.06 }
+    }
+})
 
 function Button.New(config)
     local button = makeProxy(Button, {}, Button.get, Button.set)
-    button:defineModel(Presets.Button)
+    button:defineModel(ButtonPresets)
     button:applyConfig(config)
     return button
 end
 
-__EUI_SCOPED_MODULES['src.components.Button'] = Button
+__EUI_SCOPED_MODULES['src.components.Button'] = {
+    Class = Button,
+    Presets = ButtonPresets
+}
 end
 
 -- ModuleName: "src.components.Icon"
 do
 local Component = __EUI_SCOPED_MODULES['src.components.Component']
-local Presets = __EUI_SCOPED_MODULES['src.presets.components']
+local Merge = __EUI_SCOPED_MODULES['src.helpers.merge']
 local makeProxy = __EUI_SCOPED_MODULES['src.helpers.makeProxy']
 
-local Icon = makeProxy(Component, {}, Component.get, Component.set)
+local Icon = makeProxy(Component.Class, {}, Component.Class.get, Component.Class.set)
+local IconPresets = Merge(Component.Presets, {
+    frameTemplate = 'ScoreScreenBottomButtonTemplate',
+    size = 'medium',
+    iconPath = 'ReplaceableTextures/CommandButtons/BTNSelectHeroOn',
+    _childFrames = {
+        icon = 'ScoreScreenButtonBackdrop'
+    },
+    _sizeMap = {
+        XSMALL = { 0.02, 0.02 },
+        SMALL = { 0.04, 0.04 },
+        MEDIUM = { 0.08, 0.08 },
+        LARGE = { 0.12, 0.12 },
+        XLARGE = { 0.16, 0.16 }
+    }
+})
 
 function Icon.New(config)
     local icon = makeProxy(Icon, {}, Icon.get, Icon.set)
-    icon:defineModel(Presets.Icon)
+    icon:defineModel(IconPresets)
     icon:applyConfig(config)
     return icon
 end
 
-__EUI_SCOPED_MODULES['src.components.Icon'] = Icon
+__EUI_SCOPED_MODULES['src.components.Icon'] = {
+    Class = Icon,
+    Presets = IconPresets
+}
 end
 
 -- ModuleName: "main"
@@ -634,11 +628,11 @@ Button = __EUI_SCOPED_MODULES['src.components.Button']
 Icon = __EUI_SCOPED_MODULES['src.components.Icon']
 
 EUI.CreateButton = function (config)
-    return Button.New(config)
+    return Button.Class.New(config)
 end
 
 EUI.CreateIcon = function (config)
-    return Icon.New(config)
+    return Icon.Class.New(config)
 end
 
 EUI.Create = function (type, config)
@@ -667,7 +661,7 @@ end
 MapHooks.OnInitialization(function ()
     EUI.IsReady = true
     EUI.Frame.MAIN = BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0)
-    EUI.GameFrame = Component.New()
+    EUI.GameFrame = Component.Class.New()
     EUI.GameFrame.frame = EUI.Frame.MAIN
 
     for _, handler in ipairs(EUI._ReadyPromise) do handler() end

@@ -5,11 +5,11 @@ Button = require('src.components.Button')
 Icon = require('src.components.Icon')
 
 EUI.CreateButton = function (config)
-    return Button.New(config)
+    return Button.Class.New(config)
 end
 
 EUI.CreateIcon = function (config)
-    return Icon.New(config)
+    return Icon.Class.New(config)
 end
 
 EUI.Create = function (type, config)
@@ -38,7 +38,7 @@ end
 MapHooks.OnInitialization(function ()
     EUI.IsReady = true
     EUI.Frame.MAIN = BlzGetOriginFrame(ORIGIN_FRAME_GAME_UI, 0)
-    EUI.GameFrame = Component.New()
+    EUI.GameFrame = Component.Class.New()
     EUI.GameFrame.frame = EUI.Frame.MAIN
 
     for _, handler in ipairs(EUI._ReadyPromise) do handler() end
