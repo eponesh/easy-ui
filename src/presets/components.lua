@@ -9,7 +9,8 @@ local ComponentPresets = {
     y = 0,
     text = '',
     stickTo = EUI.Origin.CENTER,
-    origin = EUI.Origin.CENTER
+    origin = EUI.Origin.CENTER,
+    texture = ''
 }
 
 local ButtonPresets = Merge(ComponentPresets, {
@@ -26,7 +27,24 @@ local ButtonPresets = Merge(ComponentPresets, {
     }
 })
 
+local IconPresets = Merge(ComponentPresets, {
+    frameTemplate = 'ScoreScreenBottomButtonTemplate',
+    size = 'medium',
+    iconPath = 'ReplaceableTextures/CommandButtons/BTNSelectHeroOn',
+    _childFrames = {
+        icon = 'ScoreScreenButtonBackdrop'
+    },
+    _sizeMap = {
+        XSMALL = { 0.02, 0.02 },
+        SMALL = { 0.04, 0.04 },
+        MEDIUM = { 0.08, 0.08 },
+        LARGE = { 0.12, 0.12 },
+        XLARGE = { 0.16, 0.16 }
+    }
+})
+
 return {
     Component = ComponentPresets,
-    Button = ButtonPresets
+    Button = ButtonPresets,
+    Icon = IconPresets
 }

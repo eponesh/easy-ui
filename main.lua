@@ -1,17 +1,24 @@
 EUI = require('src.eui')
 MapHooks = require('src.helpers.mapHooks')
-Button = require('src.components.Button')
 Component = require('src.components.Component')
+Button = require('src.components.Button')
+Icon = require('src.components.Icon')
+
+EUI.CreateButton = function (config)
+    return Button.New(config)
+end
+
+EUI.CreateIcon = function (config)
+    return Icon.New(config)
+end
 
 EUI.Create = function (type, config)
     local upperType = type:upper()
     if upperType == EUI.Component.BUTTON then
-        return Button.New(config)
+        return EUI.CreateButton(config)
+    elseif upperType == EUI.Component.ICON then
+        return EUI.CreateIcon(config)
     end
-end
-
-EUI.CreateButton = function (config)
-    return Button.New(config)
 end
 
 EUI.Append = function (instance, parent)

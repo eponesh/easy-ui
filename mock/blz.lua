@@ -10,6 +10,8 @@ function TriggerExecute () return true end
 function CreateTrigger () return true end
 function BlzDestroyFrame () return true end
 function BlzTriggerRegisterFrameEvent () return true end
+function BlzFrameSetTexture () return true end
+function BlzGetFrameByName () return true end
 
 FRAMEPOINT_CENTER = 'FRAMEPOINT_CENTER'
 FRAMEPOINT_TOP = 'FRAMEPOINT_TOP'

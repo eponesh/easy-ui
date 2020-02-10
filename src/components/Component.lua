@@ -53,6 +53,20 @@ function Component:updateSize()
     return self;
 end
 
+function Component:updateTexture()
+    if self.frame ~= nil then
+        BlzFrameSetTexture(self.frame, self.texture, 0, true)
+    end
+    return self;
+end
+
+function Component:updateIcon()
+    if self.childFrames ~= nil and self.childFrames.icon ~= nil then
+        BlzFrameSetTexture(self.childFrames.icon, self.iconPath, 0, true)
+    end
+    return self;
+end
+
 function Component.get:text()
     return self.model.text
 end
@@ -139,19 +153,56 @@ function Component.set:stickTo(framePoint)
     return point
 end
 
+function Component.get:texture()
+    return self.model.texture
+end
+function Component.set:texture(texture)
+    if texture ~= nil then
+        self.model.texture = texture
+        self:updateTexture()
+    end
+    return texture
+end
+
+function Component.get:iconPath()
+    return self.model.iconPath
+end
+function Component.set:iconPath(iconPath)
+    if iconPath ~= nil then
+        self.model.iconPath = iconPath
+        self:updateIcon()
+    end
+    return iconPath
+end
+
 function Component:mount(parent)
     self.frame = BlzCreateFrame(self.frameTemplate, parent, 0, 0)
     self.parent = parent
+
+    if self._childFrames ~= nil then
+        self.childFrames = {}
+        for name, template in pairs(self._childFrames) do
+            self.childFrames[name] = BlzGetFrameByName(template, 0)
+        end
+    end
+
     self:updatePosition()
     self:updateSize()
     self:updateText()
+    self:updateTexture()
+    self:updateIcon()
     self:registerClick()
+
+    if type(self.mounted) == 'function' then
+        self:mounted()
+    end
 end
 
 function Component:unmount()
     if self.frame ~= nil then
         BlzDestroyFrame(self.frame)
     end
+    self.childFrames = {}
     self.frame = nil
     self.parent = nil
 end

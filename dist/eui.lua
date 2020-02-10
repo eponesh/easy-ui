@@ -75,6 +75,7 @@ local EUI = {
     },
     Component = {
         BUTTON = 'BUTTON',
+        ICON = 'ICON',
         TEXT = 'TEXT',
         TOOLTIP = 'TOOLTIP'
     },
@@ -194,7 +195,8 @@ local ComponentPresets = {
     y = 0,
     text = '',
     stickTo = EUI.Origin.CENTER,
-    origin = EUI.Origin.CENTER
+    origin = EUI.Origin.CENTER,
+    texture = ''
 }
 
 local ButtonPresets = Merge(ComponentPresets, {
@@ -211,9 +213,26 @@ local ButtonPresets = Merge(ComponentPresets, {
     }
 })
 
+local IconPresets = Merge(ComponentPresets, {
+    frameTemplate = 'ScoreScreenBottomButtonTemplate',
+    size = 'medium',
+    iconPath = 'ReplaceableTextures/CommandButtons/BTNSelectHeroOn.blp',
+    _childFrames = {
+        icon = 'ScoreScreenButtonBackdrop'
+    },
+    _sizeMap = {
+        XSMALL = { 0.02, 0.02 },
+        SMALL = { 0.04, 0.04 },
+        MEDIUM = { 0.08, 0.08 },
+        LARGE = { 0.12, 0.12 },
+        XLARGE = { 0.16, 0.16 }
+    }
+})
+
 __EUI_SCOPED_MODULES['src.presets.components'] = {
     Component = ComponentPresets,
-    Button = ButtonPresets
+    Button = ButtonPresets,
+    Icon = IconPresets
 }
 end
 
@@ -344,6 +363,20 @@ function Component:updateSize()
     return self;
 end
 
+function Component:updateTexture()
+    if self.frame ~= nil then
+        BlzFrameSetTexture(self.frame, self.texture, 0, true)
+    end
+    return self;
+end
+
+function Component:updateIcon()
+    if self.childFrames ~= nil and self.childFrames.icon ~= nil then
+        BlzFrameSetTexture(self.childFrames.icon, self.iconPath, 0, true)
+    end
+    return self;
+end
+
 function Component.get:text()
     return self.model.text
 end
@@ -430,19 +463,56 @@ function Component.set:stickTo(framePoint)
     return point
 end
 
+function Component.get:texture()
+    return self.model.texture
+end
+function Component.set:texture(texture)
+    if texture ~= nil then
+        self.model.texture = texture
+        self:updateTexture()
+    end
+    return texture
+end
+
+function Component.get:iconPath()
+    return self.model.iconPath
+end
+function Component.set:iconPath(iconPath)
+    if iconPath ~= nil then
+        self.model.iconPath = iconPath
+        self:updateIcon()
+    end
+    return iconPath
+end
+
 function Component:mount(parent)
     self.frame = BlzCreateFrame(self.frameTemplate, parent, 0, 0)
     self.parent = parent
+
+    if self._childFrames ~= nil then
+        self.childFrames = {}
+        for name, template in pairs(self._childFrames) do
+            self.childFrames[name] = BlzGetFrameByName(template, 0)
+        end
+    end
+
     self:updatePosition()
     self:updateSize()
     self:updateText()
+    self:updateTexture()
+    self:updateIcon()
     self:registerClick()
+
+    if type(self.mounted) == 'function' then
+        self:mounted()
+    end
 end
 
 function Component:unmount()
     if self.frame ~= nil then
         BlzDestroyFrame(self.frame)
     end
+    self.childFrames = {}
     self.frame = nil
     self.parent = nil
 end
@@ -525,7 +595,7 @@ local Component = __EUI_SCOPED_MODULES['src.components.Component']
 local Presets = __EUI_SCOPED_MODULES['src.presets.components']
 local makeProxy = __EUI_SCOPED_MODULES['src.helpers.makeProxy']
 
-local Button =  makeProxy(Component, {}, Component.get, Component.set)
+local Button = makeProxy(Component, {}, Component.get, Component.set)
 
 function Button.New(config)
     local button = makeProxy(Button, {}, Button.get, Button.set)
@@ -537,22 +607,47 @@ end
 __EUI_SCOPED_MODULES['src.components.Button'] = Button
 end
 
+-- ModuleName: "src.components.Icon"
+do
+local Component = __EUI_SCOPED_MODULES['src.components.Component']
+local Presets = __EUI_SCOPED_MODULES['src.presets.components']
+local makeProxy = __EUI_SCOPED_MODULES['src.helpers.makeProxy']
+
+local Icon = makeProxy(Component, {}, Component.get, Component.set)
+
+function Icon.New(config)
+    local icon = makeProxy(Icon, {}, Icon.get, Icon.set)
+    icon:defineModel(Presets.Icon)
+    icon:applyConfig(config)
+    return icon
+end
+
+__EUI_SCOPED_MODULES['src.components.Icon'] = Icon
+end
+
 -- ModuleName: "main"
 do
 EUI = __EUI_SCOPED_MODULES['src.eui']
 MapHooks = __EUI_SCOPED_MODULES['src.helpers.mapHooks']
-Button = __EUI_SCOPED_MODULES['src.components.Button']
 Component = __EUI_SCOPED_MODULES['src.components.Component']
+Button = __EUI_SCOPED_MODULES['src.components.Button']
+Icon = __EUI_SCOPED_MODULES['src.components.Icon']
+
+EUI.CreateButton = function (config)
+    return Button.New(config)
+end
+
+EUI.CreateIcon = function (config)
+    return Icon.New(config)
+end
 
 EUI.Create = function (type, config)
     local upperType = type:upper()
     if upperType == EUI.Component.BUTTON then
-        return Button.New(config)
+        return EUI.CreateButton(config)
+    elseif upperType == EUI.Component.ICON then
+        return EUI.CreateIcon(config)
     end
-end
-
-EUI.CreateButton = function (config)
-    return Button.New(config)
 end
 
 EUI.Append = function (instance, parent)

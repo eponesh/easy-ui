@@ -24,6 +24,7 @@ local EUI = {
     },
     Component = {
         BUTTON = 'BUTTON',
+        ICON = 'ICON',
         TEXT = 'TEXT',
         TOOLTIP = 'TOOLTIP'
     },
