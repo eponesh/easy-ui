@@ -16,6 +16,14 @@ local EUI = {
         BOTTOMLEFT = FRAMEPOINT_BOTTOMLEFT,
         BOTTOMRIGHT = FRAMEPOINT_BOTTOMRIGHT,
     },
+    TextAlign = {
+        MIDDLE = TEXT_JUSTIFY_MIDDLE,
+        TOP = TEXT_JUSTIFY_TOP,
+        BOTTOM = TEXT_JUSTIFY_BOTTOM,
+        LEFT = TEXT_JUSTIFY_LEFT,
+        RIGHT = TEXT_JUSTIFY_RIGHT,
+        CENTER = TEXT_JUSTIFY_CENTER,
+    },
     Position = {
         ZERO = { 0, 0 }
     },

@@ -1,5 +1,5 @@
 --[[
-Easy UI. Build v0.0.3
+Easy UI. Build v0.0.4
 @Author Sergey Eponeshnikov (https://github.com/eponesh)
 ]]
 
@@ -66,6 +66,14 @@ local EUI = {
         TOPRIGHT = FRAMEPOINT_TOPRIGHT,
         BOTTOMLEFT = FRAMEPOINT_BOTTOMLEFT,
         BOTTOMRIGHT = FRAMEPOINT_BOTTOMRIGHT,
+    },
+    TextAlign = {
+        MIDDLE = TEXT_JUSTIFY_MIDDLE,
+        TOP = TEXT_JUSTIFY_TOP,
+        BOTTOM = TEXT_JUSTIFY_BOTTOM,
+        LEFT = TEXT_JUSTIFY_LEFT,
+        RIGHT = TEXT_JUSTIFY_RIGHT,
+        CENTER = TEXT_JUSTIFY_CENTER,
     },
     Position = {
         ZERO = { 0, 0 }
@@ -252,11 +260,56 @@ __EUI_SCOPED_MODULES['src.helpers.framePoints'] = {
 }
 end
 
+-- ModuleName: "src.helpers.textAligns"
+do
+local EUI = __EUI_SCOPED_MODULES['src.eui']
+
+-- Check existing text aligments by link
+local function isValidLinkTextAlign(textAlign)
+    return textAlign == EUI.TextAlign.MIDDLE
+        or textAlign == EUI.TextAlign.TOP
+        or textAlign == EUI.TextAlign.BOTTOM
+        or textAlign == EUI.TextAlign.LEFT
+        or textAlign == EUI.TextAlign.RIGHT
+        or textAlign == EUI.TextAlign.CENTER
+end
+
+-- Check existing text aligments by string and returns textalign
+local function fromStringTextAlign(textAlign)
+    if type(textAlign) == 'string' then
+        local upperAlign = textAlign:upper()
+        for alignName, align in pairs(EUI.TextAlign) do
+            if upperAlign == alignName then
+                return align
+            end
+        end
+    end
+end
+
+-- Check both link and string text aligments
+local function getConvertedTextAlign(textAlign)
+    if isValidLinkTextAlign(textAlign) then
+        return textAlign
+    end
+
+    local align = fromStringTextAlign(textAlign)
+
+    if align ~= nil then
+        return align
+    end
+end
+
+__EUI_SCOPED_MODULES['src.helpers.textAligns'] = {
+    getConvertedTextAlign = getConvertedTextAlign
+}
+end
+
 -- ModuleName: "src.components.Component"
 do
 local EUI = __EUI_SCOPED_MODULES['src.eui']
 local proto = __EUI_SCOPED_MODULES['src.helpers.proto']
 local fp = __EUI_SCOPED_MODULES['src.helpers.framePoints']
+local ta = __EUI_SCOPED_MODULES['src.helpers.textAligns']
 local DeepClone = __EUI_SCOPED_MODULES['src.helpers.deepClone']
 
 local componentId = 0
@@ -284,6 +337,7 @@ end
 function Component:defineModel(preset)
     componentId = componentId + 1
     self.id = componentId
+    self.childrens = {}
     self.model = getmetatable(self).priv
 
     for k, v in pairs(DeepClone(preset)) do self[k] = v end
@@ -303,12 +357,19 @@ function Component:updateText()
     return self;
 end
 
+function Component:updateTextAlign()
+    if self.frame ~= nil then
+        BlzFrameSetTextAlignment(self.frame, self.textAlignVertical, self.textAlign)
+    end
+    return self;
+end
+
 function Component:updatePosition()
     if self.frame ~= nil then
         BlzFrameSetPoint(
             self.frame,
             self.origin,
-            self.parent,
+            self.relativeFrame,
             self.stickTo,
             self.x / self.scale,
             self.y / self.scale
@@ -347,6 +408,13 @@ function Component:updateScale()
     return self;
 end
 
+function Component:updateTooltip()
+    if self.frame ~= nil and self.tooltip ~= nil and self.tooltip.frame ~= nil then
+        BlzFrameSetTooltip(self.frame, self.tooltip.frame)
+    end
+    return self;
+end
+
 function Component.get:text()
     return self.model.text
 end
@@ -354,6 +422,30 @@ function Component.set:text(text)
     self.model.text = text
     self:updateText()
     return text
+end
+
+function Component.get:textAlign()
+    return self.model.textAlign
+end
+function Component.set:textAlign(textAlign)
+    local align = ta.getConvertedTextAlign(textAlign)
+    if align ~= nil then
+        self.model.textAlign = align
+        self:updateTextAlign()
+    end
+    return align
+end
+
+function Component.get:textAlignVertical()
+    return self.model.textAlignVertical
+end
+function Component.set:textAlignVertical(textAlignVertical)
+    local align = ta.getConvertedTextAlignVertical(textAlignVertical)
+    if align ~= nil then
+        self.model.textAlignVertical = align
+        self:updateTextAlignVertical()
+    end
+    return align
 end
 
 function Component.get:width()
@@ -378,6 +470,7 @@ function Component.get:size()
     return self.model.size
 end
 function Component.set:size(size)
+    print(size)
     if self._sizeMap == nil then return end
     local sizeUpper = size:upper()
     for sizeName, sizeValue in pairs(self._sizeMap) do
@@ -480,7 +573,27 @@ function Component.set:iconPath(iconPath)
     return iconPath
 end
 
+function Component.get:tooltip()
+    return self.model.tooltip
+end
+function Component.set:tooltip(tooltip)
+    if tooltip ~= nil then
+        self.model.tooltip = tooltip
+
+        tooltip.relativeComponent = self
+        if self.frame ~= nil and tooltip.frame ~= nil then
+            tooltip.relativeFrame = self
+        end
+
+        self:updateTooltip()
+    end
+    return tooltip
+end
+
 function Component:mount(parent)
+    if parent == nil then return end
+
+    -- For typed frames e.g. TEXT or BUTTON
     if self._type ~= nil then
         self.frame = BlzCreateFrameByType(
             self._type,
@@ -494,6 +607,20 @@ function Component:mount(parent)
 
     self.parent = parent
 
+    -- Set relative frame to relativeComponent's frame or parent frame
+    if self.relativeComponent ~= nil and self.relativeComponent.frame ~= nil then
+        self.relativeFrame = self.relativeComponent.frame
+    else
+        self.relativeFrame = parent
+    end
+
+    -- Set tooltips relative frame as component frame (when component mounted later then tooltip)
+    if self.tooltip ~= nil and self.tooltip.frame ~= nil and self.tooltip.relativeFrame ~= self.frame then
+        self.tooltip.relativeFrame = self.frame
+        self.tooltip:updatePosition()
+    end
+
+    -- Takes frames from template
     if self._childFrames ~= nil then
         self.childFrames = {}
         for name, template in pairs(self._childFrames) do
@@ -501,14 +628,24 @@ function Component:mount(parent)
         end
     end
 
-    self:updatePosition()
-    self:updateScale()
-    self:updateSize()
-    self:updateText()
-    self:updateTexture()
-    self:updateIcon()
-    self:registerClick()
+    -- Mount child frames
+    for i, child in ipairs(self.childrens) do
+        if child.isMounted == false then
+            child:mount(self.frame)
+        end
+    end
 
+    -- Render state
+    self:updateScale()
+        :updatePosition()
+        :updateSize()
+        :updateText()
+        :updateTexture()
+        :updateIcon()
+        :updateTooltip()
+        :registerClick()
+
+    -- Callback on component mount
     if type(self.mounted) == 'function' then
         self:mounted()
     end
@@ -524,14 +661,20 @@ function Component:unmount()
 end
 
 function Component.get:isMounted()
-    return self.frame ~= nil and self.parent ~= nil
+    return self.frame ~= nil
 end
 
 function Component:AppendChild(child)
+    table.insert(self.childrens, child)
     child:mount(self.frame)
 end
 
 function Component:RemoveChild(child)
+    local childPosition = 0
+    for i, children in ipairs(self.childrens) do
+        if children == child then childPosition = i end
+    end
+    table.remove(self.childrens, childPosition)
     child:unmount(self.frame)
 end
 
@@ -641,7 +784,8 @@ local makeProxy = __EUI_SCOPED_MODULES['src.helpers.makeProxy']
 local Icon = makeProxy(Component.Class, {}, Component.Class.get, Component.Class.set)
 local IconPresets = Merge(Component.Presets, {
     frameTemplate = 'ScoreScreenBottomButtonTemplate',
-    size = 'medium',
+    width = 0.08,
+    height = 0.08,
     iconPath = 'ReplaceableTextures/CommandButtons/BTNSelectHeroOn',
     _childFrames = {
         icon = 'ScoreScreenButtonBackdrop'
@@ -678,8 +822,8 @@ local EUI = __EUI_SCOPED_MODULES['src.eui']
 local Text = makeProxy(Component.Class, {}, Component.Class.get, Component.Class.set)
 local TextPresets = Merge(Component.Presets, {
     frameTemplate = 'StandardValueTextTemplate',
-    size = 'medium',
-    fontSize = 'medium',
+    width = 0.18,
+    height = 0.04,
     _type = EUI.Component.TEXT,
     _sizeMap = {
         XSMALL = { 0.1, 0.02 },
@@ -710,6 +854,65 @@ __EUI_SCOPED_MODULES['src.components.Text'] = {
 }
 end
 
+-- ModuleName: "src.components.Tooltip"
+do
+local Component = __EUI_SCOPED_MODULES['src.components.Component']
+local Text = __EUI_SCOPED_MODULES['src.components.Text']
+local Merge = __EUI_SCOPED_MODULES['src.helpers.merge']
+local makeProxy = __EUI_SCOPED_MODULES['src.helpers.makeProxy']
+
+local DEFAULT_PADDING = 0.03
+
+local Tooltip = makeProxy(Component.Class, {}, Component.Class.get, Component.Class.set)
+local TooltipPresets = Merge(Component.Presets, {
+    frameTemplate = 'ListBoxWar3',
+    width = 0.3,
+    height = 0.15,
+    _sizeMap = {
+        XSMALL = { 0.1, 0.05 },
+        SMALL = { 0.2, 0.1 },
+        MEDIUM = { 0.3, 0.15 },
+        LARGE = { 0.4, 0.2 },
+        XLARGE = { 0.5, 0.25 }
+    },
+})
+
+function Tooltip.New(config)
+    local tooltip = makeProxy(Tooltip, {}, Tooltip.get, Tooltip.set)
+    tooltip._sizeMap = TooltipPresets._sizeMap
+    tooltip:defineModel(TooltipPresets)
+    tooltip:applyConfig(config)
+    tooltip:AppendChild(Text.Class.New({
+        width = tooltip.width - 0.03,
+        height = tooltip.height - 0.03,
+    }))
+    return tooltip
+end
+
+function Tooltip:updateSize()
+    Component.Class.updateSize(self)
+
+    if self.frame ~= nil and self.childrens[1] ~= nil then
+        self.childrens[1].width = self.width - DEFAULT_PADDING
+        self.childrens[1].height = self.height - DEFAULT_PADDING
+    end
+
+    return self;
+end
+
+function Tooltip:updateText()
+    if self.frame ~= nil and self.childrens[1] ~= nil then
+        self.childrens[1].text = self.text
+    end
+    return self;
+end
+
+__EUI_SCOPED_MODULES['src.components.Tooltip'] = {
+    Class = Tooltip,
+    Presets = TooltipPresets
+}
+end
+
 -- ModuleName: "main"
 do
 EUI = __EUI_SCOPED_MODULES['src.eui']
@@ -718,6 +921,7 @@ Component = __EUI_SCOPED_MODULES['src.components.Component']
 Button = __EUI_SCOPED_MODULES['src.components.Button']
 Icon = __EUI_SCOPED_MODULES['src.components.Icon']
 Text = __EUI_SCOPED_MODULES['src.components.Text']
+Tooltip = __EUI_SCOPED_MODULES['src.components.Tooltip']
 
 EUI.CreateButton = function (config)
     return Button.Class.New(config)
@@ -731,6 +935,10 @@ EUI.CreateText = function (config)
     return Text.Class.New(config)
 end
 
+EUI.CreateTooltip = function (config)
+    return Tooltip.Class.New(config)
+end
+
 EUI.Create = function (type, config)
     local upperType = type:upper()
     if upperType == EUI.Component.BUTTON then
@@ -739,12 +947,14 @@ EUI.Create = function (type, config)
         return EUI.CreateIcon(config)
     elseif upperType == EUI.Component.TEXT then
         return EUI.CreateText(config)
+    elseif upperType == EUI.Component.TOOLTIP then
+        return EUI.CreateTooltip(config)
     end
 end
 
-EUI.Append = function (instance, parent)
-    instance:mount(parent)
-    return instance;
+EUI.Append = function (component, parent)
+    component:mount(parent)
+    return component;
 end
 
 EUI.Ready = function (readyHandler)

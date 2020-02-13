@@ -4,6 +4,7 @@ Component = require('src.components.Component')
 Button = require('src.components.Button')
 Icon = require('src.components.Icon')
 Text = require('src.components.Text')
+Tooltip = require('src.components.Tooltip')
 
 EUI.CreateButton = function (config)
     return Button.Class.New(config)
@@ -17,6 +18,10 @@ EUI.CreateText = function (config)
     return Text.Class.New(config)
 end
 
+EUI.CreateTooltip = function (config)
+    return Tooltip.Class.New(config)
+end
+
 EUI.Create = function (type, config)
     local upperType = type:upper()
     if upperType == EUI.Component.BUTTON then
@@ -25,12 +30,14 @@ EUI.Create = function (type, config)
         return EUI.CreateIcon(config)
     elseif upperType == EUI.Component.TEXT then
         return EUI.CreateText(config)
+    elseif upperType == EUI.Component.TOOLTIP then
+        return EUI.CreateTooltip(config)
     end
 end
 
-EUI.Append = function (instance, parent)
-    instance:mount(parent)
-    return instance;
+EUI.Append = function (component, parent)
+    component:mount(parent)
+    return component;
 end
 
 EUI.Ready = function (readyHandler)

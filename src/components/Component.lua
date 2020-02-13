@@ -1,6 +1,7 @@
 local EUI = require('src.eui')
 local proto = require('src.helpers.proto')
 local fp = require('src.helpers.framePoints')
+local ta = require('src.helpers.textAligns')
 local DeepClone = require('src.helpers.deepClone')
 
 local componentId = 0
@@ -28,6 +29,7 @@ end
 function Component:defineModel(preset)
     componentId = componentId + 1
     self.id = componentId
+    self.childrens = {}
     self.model = getmetatable(self).priv
 
     for k, v in pairs(DeepClone(preset)) do self[k] = v end
@@ -47,12 +49,19 @@ function Component:updateText()
     return self;
 end
 
+function Component:updateTextAlign()
+    if self.frame ~= nil then
+        BlzFrameSetTextAlignment(self.frame, self.textAlignVertical, self.textAlign)
+    end
+    return self;
+end
+
 function Component:updatePosition()
     if self.frame ~= nil then
         BlzFrameSetPoint(
             self.frame,
             self.origin,
-            self.parent,
+            self.relativeFrame,
             self.stickTo,
             self.x / self.scale,
             self.y / self.scale
@@ -91,6 +100,13 @@ function Component:updateScale()
     return self;
 end
 
+function Component:updateTooltip()
+    if self.frame ~= nil and self.tooltip ~= nil and self.tooltip.frame ~= nil then
+        BlzFrameSetTooltip(self.frame, self.tooltip.frame)
+    end
+    return self;
+end
+
 function Component.get:text()
     return self.model.text
 end
@@ -98,6 +114,30 @@ function Component.set:text(text)
     self.model.text = text
     self:updateText()
     return text
+end
+
+function Component.get:textAlign()
+    return self.model.textAlign
+end
+function Component.set:textAlign(textAlign)
+    local align = ta.getConvertedTextAlign(textAlign)
+    if align ~= nil then
+        self.model.textAlign = align
+        self:updateTextAlign()
+    end
+    return align
+end
+
+function Component.get:textAlignVertical()
+    return self.model.textAlignVertical
+end
+function Component.set:textAlignVertical(textAlignVertical)
+    local align = ta.getConvertedTextAlignVertical(textAlignVertical)
+    if align ~= nil then
+        self.model.textAlignVertical = align
+        self:updateTextAlignVertical()
+    end
+    return align
 end
 
 function Component.get:width()
@@ -224,7 +264,27 @@ function Component.set:iconPath(iconPath)
     return iconPath
 end
 
+function Component.get:tooltip()
+    return self.model.tooltip
+end
+function Component.set:tooltip(tooltip)
+    if tooltip ~= nil then
+        self.model.tooltip = tooltip
+
+        tooltip.relativeComponent = self
+        if self.frame ~= nil and tooltip.frame ~= nil then
+            tooltip.relativeFrame = self
+        end
+
+        self:updateTooltip()
+    end
+    return tooltip
+end
+
 function Component:mount(parent)
+    if parent == nil then return end
+
+    -- For typed frames e.g. TEXT or BUTTON
     if self._type ~= nil then
         self.frame = BlzCreateFrameByType(
             self._type,
@@ -238,6 +298,20 @@ function Component:mount(parent)
 
     self.parent = parent
 
+    -- Set relative frame to relativeComponent's frame or parent frame
+    if self.relativeComponent ~= nil and self.relativeComponent.frame ~= nil then
+        self.relativeFrame = self.relativeComponent.frame
+    else
+        self.relativeFrame = parent
+    end
+
+    -- Set tooltips relative frame as component frame (when component mounted later then tooltip)
+    if self.tooltip ~= nil and self.tooltip.frame ~= nil and self.tooltip.relativeFrame ~= self.frame then
+        self.tooltip.relativeFrame = self.frame
+        self.tooltip:updatePosition()
+    end
+
+    -- Takes frames from template
     if self._childFrames ~= nil then
         self.childFrames = {}
         for name, template in pairs(self._childFrames) do
@@ -245,14 +319,24 @@ function Component:mount(parent)
         end
     end
 
-    self:updateScale()
-    self:updatePosition()
-    self:updateSize()
-    self:updateText()
-    self:updateTexture()
-    self:updateIcon()
-    self:registerClick()
+    -- Mount child frames
+    for i, child in ipairs(self.childrens) do
+        if child.isMounted == false then
+            child:mount(self.frame)
+        end
+    end
 
+    -- Render state
+    self:updateScale()
+        :updatePosition()
+        :updateSize()
+        :updateText()
+        :updateTexture()
+        :updateIcon()
+        :updateTooltip()
+        :registerClick()
+
+    -- Callback on component mount
     if type(self.mounted) == 'function' then
         self:mounted()
     end
@@ -268,14 +352,20 @@ function Component:unmount()
 end
 
 function Component.get:isMounted()
-    return self.frame ~= nil and self.parent ~= nil
+    return self.frame ~= nil
 end
 
 function Component:AppendChild(child)
+    table.insert(self.childrens, child)
     child:mount(self.frame)
 end
 
 function Component:RemoveChild(child)
+    local childPosition = 0
+    for i, children in ipairs(self.childrens) do
+        if children == child then childPosition = i end
+    end
+    table.remove(self.childrens, childPosition)
     child:unmount(self.frame)
 end
 
