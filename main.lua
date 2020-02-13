@@ -5,6 +5,20 @@ Button = require('src.components.Button')
 Icon = require('src.components.Icon')
 Text = require('src.components.Text')
 Tooltip = require('src.components.Tooltip')
+Quest = require('src.quests.Quest')
+Languages = require('src.languages.languages')
+
+EUI.SetLanguage = function (language)
+    local lang = language:upper()
+
+    if Languages[lang] ~= nil then
+        EUI.StringTemplates = Languages[lang]
+        EUI.Language = lang
+        return true
+    end
+
+    return false
+end
 
 EUI.CreateButton = function (config)
     return Button.Class.New(config)
@@ -22,6 +36,10 @@ EUI.CreateTooltip = function (config)
     return Tooltip.Class.New(config)
 end
 
+EUI.CreateQuest = function (config)
+    return Quest.Class.New(config)
+end
+
 EUI.Create = function (type, config)
     local upperType = type:upper()
     if upperType == EUI.Component.BUTTON then
@@ -32,12 +50,14 @@ EUI.Create = function (type, config)
         return EUI.CreateText(config)
     elseif upperType == EUI.Component.TOOLTIP then
         return EUI.CreateTooltip(config)
+    elseif upperType == EUI.Modules.QUEST then
+        return EUI.CreateQuest(config)
     end
 end
 
 EUI.Append = function (component, parent)
     component:mount(parent)
-    return component;
+    return component
 end
 
 EUI.Ready = function (readyHandler)
@@ -48,6 +68,8 @@ EUI.Ready = function (readyHandler)
 
     table.insert(EUI._ReadyPromise, readyHandler)
 end
+
+EUI.SetLanguage(EUI.Languages.ENGLISH)
 
 MapHooks.OnInitialization(function ()
     EUI.IsReady = true

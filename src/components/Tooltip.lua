@@ -39,14 +39,14 @@ function Tooltip:updateSize()
         self.childrens[1].height = self.height - DEFAULT_PADDING
     end
 
-    return self;
+    return self
 end
 
 function Tooltip:updateText()
     if self.frame ~= nil and self.childrens[1] ~= nil then
         self.childrens[1].text = self.text
     end
-    return self;
+    return self
 end
 
 return {

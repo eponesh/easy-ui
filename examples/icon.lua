@@ -4,7 +4,7 @@ local EUI = require('main')
 
 -- WE working code
 local firstIcon = EUI.CreateIcon()
-firstIcon.iconPath = 'ReplaceableTextures/CommandButtons/BTNMuradinBronzeBeard.blp'
+firstIcon.iconPath = 'ReplaceableTextures/CommandButtons/BTNMuradinBronzeBeard'
 firstIcon.stickTo = 'center'
 firstIcon.size = 'large'
 firstIcon:OnClick(function()
@@ -12,7 +12,7 @@ firstIcon:OnClick(function()
 end)
 
 local secondIcon = EUI.CreateIcon({
-    iconPath = 'ReplaceableTextures/CommandButtons/BTNSylvanas.blp',
+    iconPath = 'ReplaceableTextures/CommandButtons/BTNSylvanas',
     size = 'xlarge',
     origin = 'topright',
     stickTo = 'top',

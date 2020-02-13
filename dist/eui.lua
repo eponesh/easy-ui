@@ -1,5 +1,5 @@
 --[[
-Easy UI. Build v0.0.4
+Easy UI. Build v0.0.5
 @Author Sergey Eponeshnikov (https://github.com/eponesh)
 ]]
 
@@ -87,12 +87,20 @@ local EUI = {
         TEXT = 'TEXT',
         TOOLTIP = 'TOOLTIP'
     },
+    Modules = {
+        QUEST = 'QUEST'
+    },
     Size = {
         XSMALL = 'XSMALL',
         SMALL = 'SMALL',
         MEDIUM = 'MEDIUM',
         LARGE = 'LARGE',
         XLARGE = 'XLARGE'
+    },
+    Language = 'EN',
+    Languages = {
+        RUSSIAN = 'RU',
+        ENGLISH = 'EN',
     },
     _ReadyPromise = {}
 }
@@ -347,21 +355,21 @@ end
 function Component:applyConfig(config)
     if config == nil then return end
     for k, v in pairs(config) do self[k] = v end
-    return self;
+    return self
 end
 
 function Component:updateText()
     if self.frame ~= nil then
         BlzFrameSetText(self.frame, self.text)
     end
-    return self;
+    return self
 end
 
 function Component:updateTextAlign()
     if self.frame ~= nil then
         BlzFrameSetTextAlignment(self.frame, self.textAlignVertical, self.textAlign)
     end
-    return self;
+    return self
 end
 
 function Component:updatePosition()
@@ -375,28 +383,28 @@ function Component:updatePosition()
             self.y / self.scale
         )
     end
-    return self;
+    return self
 end
 
 function Component:updateSize()
     if self.frame ~= nil then
         BlzFrameSetSize(self.frame, self.width / self.scale, self.height / self.scale)
     end
-    return self;
+    return self
 end
 
 function Component:updateTexture()
     if self.frame ~= nil then
         BlzFrameSetTexture(self.frame, self.texture, 0, true)
     end
-    return self;
+    return self
 end
 
 function Component:updateIcon()
     if self.childFrames ~= nil and self.childFrames.icon ~= nil then
         BlzFrameSetTexture(self.childFrames.icon, self.iconPath, 0, true)
     end
-    return self;
+    return self
 end
 
 function Component:updateScale()
@@ -405,14 +413,14 @@ function Component:updateScale()
         self:updateSize()
         self:updatePosition()
     end
-    return self;
+    return self
 end
 
 function Component:updateTooltip()
     if self.frame ~= nil and self.tooltip ~= nil and self.tooltip.frame ~= nil then
         BlzFrameSetTooltip(self.frame, self.tooltip.frame)
     end
-    return self;
+    return self
 end
 
 function Component.get:text()
@@ -470,7 +478,6 @@ function Component.get:size()
     return self.model.size
 end
 function Component.set:size(size)
-    print(size)
     if self._sizeMap == nil then return end
     local sizeUpper = size:upper()
     for sizeName, sizeValue in pairs(self._sizeMap) do
@@ -897,19 +904,532 @@ function Tooltip:updateSize()
         self.childrens[1].height = self.height - DEFAULT_PADDING
     end
 
-    return self;
+    return self
 end
 
 function Tooltip:updateText()
     if self.frame ~= nil and self.childrens[1] ~= nil then
         self.childrens[1].text = self.text
     end
-    return self;
+    return self
 end
 
 __EUI_SCOPED_MODULES['src.components.Tooltip'] = {
     Class = Tooltip,
     Presets = TooltipPresets
+}
+end
+
+-- ModuleName: "src.quests.QuestTask"
+do
+local proto = __EUI_SCOPED_MODULES['src.helpers.proto']
+local DeepClone = __EUI_SCOPED_MODULES['src.helpers.deepClone']
+local makeProxy = __EUI_SCOPED_MODULES['src.helpers.makeProxy']
+
+local questTaskId = 0
+local QuestTask = proto.NewClass()
+local QuestTaskPresets = {
+    key = '',
+    description = '',
+    completed = false,
+}
+
+function QuestTask.New(config)
+    local questTask = makeProxy(QuestTask, {}, QuestTask.get, QuestTask.set)
+    questTask:defineModel(QuestTaskPresets)
+    questTask:applyConfig(config)
+    return questTask
+end
+
+function QuestTask:defineModel(preset)
+    questTaskId = questTaskId + 1
+    self.id = questTaskId
+    self.model = getmetatable(self).priv
+
+    for k, v in pairs(DeepClone(preset)) do self[k] = v end
+    return self
+end
+
+function QuestTask:applyConfig(config)
+    if config == nil then return end
+    for k, v in pairs(config) do self[k] = v end
+    return self
+end
+
+function QuestTask:updateDescription()
+    if self.questTask ~= nil then
+        QuestItemSetDescription(self.questTask, self.description)
+    end
+    return self
+end
+
+function QuestTask:updateCompleted()
+    if self.questTask ~= nil then
+        QuestItemSetCompleted(self.questTask, self.completed)
+    end
+    return self
+end
+
+function QuestTask.get:description()
+    return self.model.description
+end
+function QuestTask.set:description(description)
+    self.model.description = description
+    self:updateDescription()
+    return description
+end
+
+function QuestTask.get:completed()
+    return self.model.completed
+end
+function QuestTask.set:completed(completed)
+    self.model.completed = completed
+    self:updateCompleted()
+    return completed
+end
+
+function QuestTask:ApplyQuest(quest)
+    self.quest = quest
+    self.questTask = QuestCreateItem(quest.quest)
+    self:updateDescription()
+        :updateCompleted()
+
+    return self
+end
+
+function QuestTask:Complete()
+    self.completed = true
+    if self.quest ~= nil and self.quest.silent == false then
+        self.quest:ShowUpdatedMessage():CheckComplete()
+    end
+    return self
+end
+
+__EUI_SCOPED_MODULES['src.quests.QuestTask'] = {
+    Class = QuestTask,
+    Presets = QuestTaskPresets
+}
+end
+
+-- ModuleName: "src.quests.Quest"
+do
+local EUI = __EUI_SCOPED_MODULES['src.eui']
+local proto = __EUI_SCOPED_MODULES['src.helpers.proto']
+local DeepClone = __EUI_SCOPED_MODULES['src.helpers.deepClone']
+local makeProxy = __EUI_SCOPED_MODULES['src.helpers.makeProxy']
+local QuestTask = __EUI_SCOPED_MODULES['src.quests.QuestTask']
+
+local questId = 0
+local Quest = proto.NewClass()
+local QuestPresets = {
+    icon = 'ReplaceableTextures/CommandButtons/BTNSelectHeroOn',
+    title = '',
+    description = '',
+    enabled = true,
+    completed = false,
+    required = false,
+    discovered = false,
+    failed = false,
+    tasks = {},
+    autocomplete = true,
+    silent = false,
+}
+
+function Quest.New(config)
+    local quest = makeProxy(Quest, {}, Quest.get, Quest.set)
+    quest:defineModel(QuestPresets)
+    quest:applyConfig(config)
+
+    local tasks = quest.tasks
+    quest.tasks = {}
+
+    for _, task in ipairs(tasks) do
+        quest:AddTask(task)
+    end
+
+    EUI.Ready(function () quest:Create() end)
+    return quest
+end
+
+function Quest:defineModel(preset)
+    questId = questId + 1
+    self.id = questId
+    self.model = getmetatable(self).priv
+
+    for k, v in pairs(DeepClone(preset)) do self[k] = v end
+    return self
+end
+
+function Quest:applyConfig(config)
+    if config == nil then return end
+    for k, v in pairs(config) do self[k] = v end
+    return self
+end
+
+function Quest:updateTitle()
+    if self.quest ~= nil then
+        QuestSetTitle(self.quest, self.title)
+    end
+    return self
+end
+
+function Quest:updateDescription()
+    if self.quest ~= nil then
+        QuestSetDescription(self.quest, self.description)
+    end
+    return self
+end
+
+function Quest:updateIcon()
+    if self.quest ~= nil then
+        QuestSetIconPath(self.quest, self.icon)
+    end
+    return self
+end
+
+function Quest:updateRequired()
+    if self.quest ~= nil then
+        QuestSetRequired(self.quest, self.required)
+    end
+    return self
+end
+
+function Quest:updateEnabled()
+    if self.quest ~= nil then
+        QuestSetEnabled(self.quest, self.enabled)
+    end
+    return self
+end
+
+function Quest:updateDiscovered()
+    if self.quest ~= nil then
+        QuestSetDiscovered(self.quest, self.discovered)
+
+        if self.silent == false and self.discovered == true then
+            self:ShowDiscoveredMessage()
+        end
+    end
+    return self
+end
+
+function Quest:updateCompleted()
+    if self.quest ~= nil then
+        QuestSetCompleted(self.quest, self.completed)
+
+        if self.silent == false and self.completed == true then
+            self:ShowCompletedMessage()
+        end
+    end
+    return self
+end
+
+function Quest:updateFailed()
+    if self.quest ~= nil then
+        QuestSetFailed(self.quest, self.failed)
+
+        if self.silent == false and self.failed == true then
+            self:ShowFailedMessage()
+        end
+    end
+    return self
+end
+
+function Quest.get:title()
+    return self.model.title
+end
+function Quest.set:title(title)
+    self.model.title = title
+    self:updateTitle()
+    return title
+end
+
+function Quest.get:description()
+    return self.model.description
+end
+function Quest.set:description(description)
+    self.model.description = description
+    self:updateDescription()
+    return description
+end
+
+function Quest.get:icon()
+    return self.model.icon
+end
+function Quest.set:icon(icon)
+    self.model.icon = icon
+    self:updateIcon()
+    return icon
+end
+
+function Quest.get:required()
+    return self.model.required
+end
+function Quest.set:required(required)
+    self.model.required = required
+    self:updateRequired()
+    return required
+end
+
+function Quest.get:completed()
+    return self.model.completed
+end
+function Quest.set:completed(completed)
+    if self.failed == true then return end
+    self.model.completed = completed
+    self:updateCompleted()
+    return completed
+end
+
+function Quest.get:discovered()
+    return self.model.discovered
+end
+function Quest.set:discovered(discovered)
+    self.model.discovered = discovered
+    self:updateDiscovered()
+    return discovered
+end
+
+function Quest.get:failed()
+    return self.model.failed
+end
+function Quest.set:failed(failed)
+    if self.completed == true then return end
+    self.model.failed = failed
+    self:updateFailed()
+    return failed
+end
+
+function Quest.get:enabled()
+    return self.model.enabled
+end
+function Quest.set:enabled(enabled)
+    self.model.enabled = enabled
+    self:updateEnabled()
+    return enabled
+end
+
+function Quest.get:questTypeText()
+    if self.required == true then
+        return EUI.StringTemplates.Quest.MAIN
+    end
+    return EUI.StringTemplates.Quest.OPTIONAL
+end
+
+function Quest.get:tasksMessage()
+    local message = ''
+    for _, task in ipairs(self.tasks) do
+        if task.completed == true then
+            message = message  .. '\n|cff808080— ' .. task.description .. ' (' .. EUI.StringTemplates.Quest.TASK_COMPLETED .. ')|r'
+        else
+            message = message  .. '\n— ' .. task.description
+        end
+    end
+    return message
+end
+
+function Quest:Create()
+    self.quest = CreateQuest()
+
+    -- Render Tasks list
+    for _, task in ipairs(self.tasks) do
+        task:ApplyQuest(self)
+    end
+
+    -- Render Quest
+    self:updateTitle()
+        :updateDescription()
+        :updateIcon()
+        :updateEnabled()
+        :updateRequired()
+        :updateDiscovered()
+        :updateCompleted()
+        :updateFailed()
+
+    return self
+end
+
+function Quest:Show()
+    self.enabled = true
+    return self
+end
+
+function Quest:Hide()
+    self.enabled = false
+    return self
+end
+
+function Quest:Flash()
+    FlashQuestDialogButton()
+    return self
+end
+
+function Quest:Destroy()
+    DestroyQuest(self.quest)
+    self.quest = nil
+    return self
+end
+
+function Quest:GetTask(taskOrIdOrKey)
+    local taskInstance = nil
+    if type(taskOrIdOrKey) == 'number' or type(taskOrIdOrKey) == 'string' then
+        for _, task in ipairs(self.tasks) do
+            if task.id == taskOrIdOrKey or task.key == taskOrIdOrKey then
+                taskInstance = task
+            end
+        end
+    end
+
+    if taskInstance == nil and taskOrIdOrKey then
+        taskInstance = taskOrIdOrKey
+    end
+
+    return taskInstance
+end
+
+function Quest:AddTask(task)
+    local taskInstance = nil
+    if type(task) == 'string' then
+        taskInstance = QuestTask.Class.New({ description = task })
+    elseif type(task) == 'table' then
+        taskInstance = QuestTask.Class.New(task)
+    elseif task then
+        taskInstance = task
+    end
+
+    if taskInstance == nil then
+        return
+    end
+
+    table.insert(self.tasks, taskInstance)
+
+    if self.quest ~= nil then
+        taskInstance:ApplyQuest(self)
+    end
+
+    return taskInstance
+end
+
+function Quest:RemoveTask(taskOrIdOrKey)
+    local task = self:GetTask(taskOrIdOrKey)
+    if task ~= nil then
+        table.remove(self.tasks, task)
+    end
+end
+
+function Quest:CheckComplete()
+    if self.completed == true or self.autocomplete == false then return end
+
+    local completed = true
+    for _, task in ipairs(self.tasks) do
+        if task.completed == false then
+            completed = false
+            break
+        end
+    end
+
+    if completed == true then
+        self.completed = true
+    end
+
+    return self
+end
+
+function Quest:CompleteTask(taskOrIdOrKey)
+    local task = self:GetTask(taskOrIdOrKey)
+    if task ~= nil then
+        task:Complete()
+    end
+
+    return self
+end
+
+function Quest:generateTitle(status)
+    return '|cffffcc00' ..  self.questTypeText .. ' ' .. (status or '') .. '|r\n' .. self.title
+end
+
+function Quest:ShowUpdatedMessage()
+    QuestMessageBJ(
+        bj_FORCE_ALL_PLAYERS,
+        bj_QUESTMESSAGE_UPDATED,
+        self:generateTitle(EUI.StringTemplates.Quest.UPDATED) .. self.tasksMessage
+    )
+    return self
+end
+
+function Quest:ShowFailedMessage()
+    QuestMessageBJ(
+        bj_FORCE_ALL_PLAYERS,
+        bj_QUESTMESSAGE_FAILED,
+        self:generateTitle(EUI.StringTemplates.Quest.FAILED)
+    )
+    return self
+end
+
+function Quest:ShowCompletedMessage()
+    QuestMessageBJ(
+        bj_FORCE_ALL_PLAYERS,
+        bj_QUESTMESSAGE_FAILED,
+        self:generateTitle(EUI.StringTemplates.Quest.COMPLETED)
+    )
+    return self
+end
+
+function Quest:ShowDiscoveredMessage()
+    QuestMessageBJ(
+        bj_FORCE_ALL_PLAYERS,
+        bj_QUESTMESSAGE_DISCOVERED,
+        self:generateTitle() .. self.tasksMessage
+    )
+    return self
+end
+
+__EUI_SCOPED_MODULES['src.quests.Quest'] = {
+    Class = Quest,
+    Presets = QuestPresets
+}
+end
+
+-- ModuleName: "src.languages.russian"
+do
+local RussianTemplates = {
+    Quest = {
+        MAIN = 'ОСНОВНАЯ ЗАДАЧА',
+        OPTIONAL = 'ДОПОЛНИТЕЛЬНАЯ ЗАДАЧА',
+        COMPLETED = 'ЗАВЕРШЕНА',
+        FAILED = 'ПРОВАЛЕНА',
+        UPDATED = 'ОБНОВЛЕНА',
+        TASK_COMPLETED = 'Выполнено',
+    }
+}
+
+__EUI_SCOPED_MODULES['src.languages.russian'] = RussianTemplates
+end
+
+-- ModuleName: "src.languages.english"
+do
+local EnglishTemplates = {
+    Quest = {
+        MAIN = 'MAIN QUEST',
+        OPTIONAL = 'OPTIONAL QUEST',
+        COMPLETED = 'COMPLETED',
+        FAILED = 'FAILED',
+        UPDATED = 'UPDATED',
+        TASK_COMPLETED = 'Completed',
+    }
+}
+
+__EUI_SCOPED_MODULES['src.languages.english'] = EnglishTemplates
+end
+
+-- ModuleName: "src.languages.languages"
+do
+local EUI = __EUI_SCOPED_MODULES['src.eui']
+local Russian = __EUI_SCOPED_MODULES['src.languages.russian']
+local English = __EUI_SCOPED_MODULES['src.languages.english']
+
+__EUI_SCOPED_MODULES['src.languages.languages'] = {
+    [EUI.Languages.RUSSIAN] = Russian,
+    [EUI.Languages.ENGLISH] = English
 }
 end
 
@@ -922,6 +1442,20 @@ Button = __EUI_SCOPED_MODULES['src.components.Button']
 Icon = __EUI_SCOPED_MODULES['src.components.Icon']
 Text = __EUI_SCOPED_MODULES['src.components.Text']
 Tooltip = __EUI_SCOPED_MODULES['src.components.Tooltip']
+Quest = __EUI_SCOPED_MODULES['src.quests.Quest']
+Languages = __EUI_SCOPED_MODULES['src.languages.languages']
+
+EUI.SetLanguage = function (language)
+    local lang = language:upper()
+
+    if Languages[lang] ~= nil then
+        EUI.StringTemplates = Languages[lang]
+        EUI.Language = lang
+        return true
+    end
+
+    return false
+end
 
 EUI.CreateButton = function (config)
     return Button.Class.New(config)
@@ -939,6 +1473,10 @@ EUI.CreateTooltip = function (config)
     return Tooltip.Class.New(config)
 end
 
+EUI.CreateQuest = function (config)
+    return Quest.Class.New(config)
+end
+
 EUI.Create = function (type, config)
     local upperType = type:upper()
     if upperType == EUI.Component.BUTTON then
@@ -949,12 +1487,14 @@ EUI.Create = function (type, config)
         return EUI.CreateText(config)
     elseif upperType == EUI.Component.TOOLTIP then
         return EUI.CreateTooltip(config)
+    elseif upperType == EUI.Modules.QUEST then
+        return EUI.CreateQuest(config)
     end
 end
 
 EUI.Append = function (component, parent)
     component:mount(parent)
-    return component;
+    return component
 end
 
 EUI.Ready = function (readyHandler)
@@ -965,6 +1505,8 @@ EUI.Ready = function (readyHandler)
 
     table.insert(EUI._ReadyPromise, readyHandler)
 end
+
+EUI.SetLanguage(EUI.Languages.ENGLISH)
 
 MapHooks.OnInitialization(function ()
     EUI.IsReady = true

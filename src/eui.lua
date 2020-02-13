@@ -36,12 +36,20 @@ local EUI = {
         TEXT = 'TEXT',
         TOOLTIP = 'TOOLTIP'
     },
+    Modules = {
+        QUEST = 'QUEST'
+    },
     Size = {
         XSMALL = 'XSMALL',
         SMALL = 'SMALL',
         MEDIUM = 'MEDIUM',
         LARGE = 'LARGE',
         XLARGE = 'XLARGE'
+    },
+    Language = 'EN',
+    Languages = {
+        RUSSIAN = 'RU',
+        ENGLISH = 'EN',
     },
     _ReadyPromise = {}
 }

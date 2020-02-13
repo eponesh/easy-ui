@@ -39,21 +39,21 @@ end
 function Component:applyConfig(config)
     if config == nil then return end
     for k, v in pairs(config) do self[k] = v end
-    return self;
+    return self
 end
 
 function Component:updateText()
     if self.frame ~= nil then
         BlzFrameSetText(self.frame, self.text)
     end
-    return self;
+    return self
 end
 
 function Component:updateTextAlign()
     if self.frame ~= nil then
         BlzFrameSetTextAlignment(self.frame, self.textAlignVertical, self.textAlign)
     end
-    return self;
+    return self
 end
 
 function Component:updatePosition()
@@ -67,28 +67,28 @@ function Component:updatePosition()
             self.y / self.scale
         )
     end
-    return self;
+    return self
 end
 
 function Component:updateSize()
     if self.frame ~= nil then
         BlzFrameSetSize(self.frame, self.width / self.scale, self.height / self.scale)
     end
-    return self;
+    return self
 end
 
 function Component:updateTexture()
     if self.frame ~= nil then
         BlzFrameSetTexture(self.frame, self.texture, 0, true)
     end
-    return self;
+    return self
 end
 
 function Component:updateIcon()
     if self.childFrames ~= nil and self.childFrames.icon ~= nil then
         BlzFrameSetTexture(self.childFrames.icon, self.iconPath, 0, true)
     end
-    return self;
+    return self
 end
 
 function Component:updateScale()
@@ -97,14 +97,14 @@ function Component:updateScale()
         self:updateSize()
         self:updatePosition()
     end
-    return self;
+    return self
 end
 
 function Component:updateTooltip()
     if self.frame ~= nil and self.tooltip ~= nil and self.tooltip.frame ~= nil then
         BlzFrameSetTooltip(self.frame, self.tooltip.frame)
     end
-    return self;
+    return self
 end
 
 function Component.get:text()

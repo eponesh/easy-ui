@@ -11,7 +11,7 @@ end
 local output = '--[[\n' ..
 
 [[
-Easy UI. Build v0.0.4
+Easy UI. Build v0.0.5
 @Author Sergey Eponeshnikov (https://github.com/eponesh)
 ]]
 

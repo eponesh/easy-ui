@@ -26,7 +26,7 @@ local secondTooltip = EUI.CreateTooltip({
 })
 
 local icon = EUI.CreateIcon({
-    iconPath = 'ReplaceableTextures/CommandButtons/BTNSylvanas.blp',
+    iconPath = 'ReplaceableTextures/CommandButtons/BTNSylvanas',
     size = 'large',
     origin = 'topright',
     stickTo = 'top',
